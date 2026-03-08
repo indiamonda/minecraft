@@ -1,24 +1,25 @@
-app = "mcraft-proxy"
+app = "minecraft-web-client"
 primary_region = "sjc"
 
 [build]
 
 [env]
-  PORT = "3000"
+  PORT = "8080"
+  HOST = "0.0.0.0"
 
 [http_service]
-  internal_port = 3000
-  force_https = true
+  internal_port = 8080
+  force_https = false
   auto_stop_machines = false
   auto_start_machines = true
   min_machines_running = 1
 
   [http_service.concurrency]
     type = "connections"
-    hard_limit = 100
-    soft_limit = 80
+    hard_limit = 200
+    soft_limit = 150
 
 [[vm]]
-  memory = "512mb"
+  memory = "1024mb"
   cpu_kind = "shared"
   cpus = 1
