@@ -1,7 +1,6 @@
 import { proxy, subscribe, useSnapshot } from 'valtio'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { isStringAllowed, MessageFormatPart } from '../chatUtils'
-import { gameAdditionalState } from '../globalState'
 import { MessagePart } from './MessageFormatted'
 import './Chat.css'
 import { isIos, reactKeyForMessage } from './utils'
@@ -9,6 +8,7 @@ import Button from './Button'
 import { pixelartIcons } from './PixelartIcon'
 import { useScrollBehavior } from './hooks/useScrollBehavior'
 import { withInjectableUi } from './extendableSystem'
+import { useTypingIndicatorText } from './useTypingIndicatorText'
 
 export type Message = {
   parts: MessageFormatPart[],
@@ -138,16 +138,7 @@ const ChatBase = ({
   const [rightNowAtBottom, setRightNowAtBottom] = useState(false)
 
   // Typing indicator state
-  const { typingUsers } = useSnapshot(gameAdditionalState)
-  const typingIndicatorText = useMemo(() => {
-    const activeTypingUsers = typingUsers.filter(user => !user.timestamp || Date.now() - user.timestamp < 2000)
-    if (activeTypingUsers.length === 0) return ''
-    if (activeTypingUsers.length === 1) return `${activeTypingUsers[0]?.username || 'Someone'} is typing...`
-    if (activeTypingUsers.length === 2) return `${activeTypingUsers[0]?.username || 'Someone'} and ${activeTypingUsers[1]?.username || 'Someone'} are typing...`
-    const usernames = activeTypingUsers.slice(0, -1).map(user => user?.username || 'Someone').join(', ')
-    const lastUser = activeTypingUsers.at(-1)?.username || 'Someone'
-    return `${usernames} and ${lastUser} are typing...`
-  }, [typingUsers])
+  const typingIndicatorText = useTypingIndicatorText()
 
   const typingIndicator = typingIndicatorText ? (
     <div style={{
@@ -178,16 +169,6 @@ const ChatBase = ({
       </div>
     </div>
   ) : null
-
-  // Clean up old typing users every second
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const now = Date.now()
-      gameAdditionalState.typingUsers = gameAdditionalState.typingUsers.filter(user => !user.timestamp || now - user.timestamp < 2000)
-    }, 1000)
-
-    return () => clearInterval(interval)
-  }, [])
 
   useEffect(() => {
     if (!debugChatScroll) return

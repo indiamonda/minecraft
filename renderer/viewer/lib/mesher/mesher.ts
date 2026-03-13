@@ -144,10 +144,6 @@ const handleMessage = data => {
 
       break
     }
-    case 'ping': {
-      global.postMessage({ type: 'pong' })
-      break
-    }
     case 'getCustomBlockModel': {
       const pos = new Vec3(data.pos.x, data.pos.y, data.pos.z)
       const chunkKey = `${Math.floor(pos.x / 16) * 16},${Math.floor(pos.z / 16) * 16}`

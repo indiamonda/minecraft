@@ -77,7 +77,6 @@ import { saveToBrowserMemory } from './react/PauseScreen'
 import './devReload'
 import './water'
 import { ConnectOptions, getVersionAutoSelect, downloadOtherGameData, downloadAllMinecraftData, loadMinecraftData } from './connect'
-import { initMesherWorker } from 'renderer/viewer/lib/worldrendererCommon'
 import { ref, subscribe } from 'valtio'
 import { signInMessageState } from './react/SignInMessageProvider'
 import { findServerPassword, updateAuthenticatedAccountData, updateLoadedServerData, updateServerConnectionHistory } from './react/serversStorage'
@@ -162,43 +161,6 @@ function listenGlobalEvents () {
   })
 }
 
-const testWebWorkerSetup = async () => {
-  const TIMEOUT_MS = 5000
-  const workerUrl = process.env.SINGLE_FILE_BUILD
-    ? '(embedded inline script)'
-    : new URL('mesher.js', location.href).href
-  const msgBase = `Minecraft Web Client can't work without WebWorkers, contact this site's administrator to fix it. `
-
-  await new Promise<void>((resolve, reject) => {
-    let worker: ReturnType<typeof initMesherWorker> | undefined
-    const timeout = setTimeout(() => {
-      worker?.terminate()
-      reject(new Error(msgBase + `Messaging to worker timed out after ${TIMEOUT_MS}ms. Worker URL: ${workerUrl}`))
-    }, TIMEOUT_MS)
-
-    try {
-      worker = initMesherWorker((data) => {
-        const pong = Array.isArray(data) ? data.find((m: any) => m.type === 'pong') : data
-        if (pong?.type === 'pong') {
-          clearTimeout(timeout)
-          worker!.terminate()
-          resolve()
-        }
-      })
-      worker.onerror = (e: ErrorEvent) => {
-        clearTimeout(timeout)
-        worker?.terminate()
-        reject(new Error(msgBase + `Worker error: ${e.message}. Worker URL: ${workerUrl}`))
-      }
-      worker.postMessage({ type: 'ping' })
-    } catch (err) {
-      clearTimeout(timeout)
-      worker?.terminate()
-      reject(new Error(msgBase + `Worker creation failed: ${err}. Worker URL: ${workerUrl}`))
-    }
-  })
-}
-
 export async function connect (connectOptions: ConnectOptions) {
   if (miscUiState.gameLoaded) return
 
@@ -261,16 +223,6 @@ export async function connect (connectOptions: ConnectOptions) {
   const progress = createFullScreenProgressReporter()
   const loggingInMsg = connectOptions.server ? 'Connecting to server' : 'Logging in'
   progress.beginStage('connect', loggingInMsg)
-
-  try {
-    await testWebWorkerSetup()
-  } catch (err) {
-    miscUiState.hasErrors = true
-    loadingTimerState.loading = false
-    setLoadingScreenStatus((err as Error).message, true)
-    progress.end()
-    return
-  }
 
   let ended = false
   let bot!: typeof __type_bot
