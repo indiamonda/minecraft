@@ -208,7 +208,7 @@ const MainMenuBase = ({
             onClick={onVersionStatusClick}
             className={styles['product-info']}
           >
-            Prismarine Web Client {versionStatus}
+            Prismarine & Zardoy Web Client {versionStatus}
           </span>
         </div>
         <span className={styles['product-description']}>
