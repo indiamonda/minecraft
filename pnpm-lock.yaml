@@ -145,8 +145,8 @@ importers:
         specifier: 3.106.0
         version: 3.106.0
       minecraft-inventory:
-        specifier: ^0.1.37
-        version: 0.1.39(@xmcl/text-component@2.1.3)(mc-assets@0.2.72)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: ^0.1.43
+        version: 0.1.43(@xmcl/text-component@2.1.3)(mc-assets@0.2.72)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       minecraft-protocol:
         specifier: github:PrismarineJS/node-minecraft-protocol#master
         version: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/3fabf16c61995b7a2c6d4d2902f7af99d0fe0a77(patch_hash=a0fc92234601e93b1e536d8d7cc9bf80a9df670d821e1d12746f261d15954fae)(encoding@0.1.13)
@@ -6699,8 +6699,8 @@ packages:
   minecraft-folder-path@1.2.0:
     resolution: {integrity: sha512-qaUSbKWoOsH9brn0JQuBhxNAzTDMwrOXorwuRxdJKKKDYvZhtml+6GVCUrY5HRiEsieBEjCUnhVpDuQiKsiFaw==}
 
-  minecraft-inventory@0.1.39:
-    resolution: {integrity: sha512-m92NGCKsfqnTkNZ1J0s2PC5JSo+sHpT6nVHrkY16yOnLWauBu5mPR7v2MjVm7Hc9OL23XVKwAG8tMGy60ChtZw==}
+  minecraft-inventory@0.1.43:
+    resolution: {integrity: sha512-k3grpC2OuRxsJIN8HKSu9Dr5hrNRmDvPt7diE0P4cBo2xE654AqNQKUxQme5qlcnAUQKcJeiJSHN26Apc3fuEg==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
     peerDependencies:
       '@xmcl/text-component': '*'
@@ -17363,7 +17363,7 @@ snapshots:
 
   minecraft-folder-path@1.2.0: {}
 
-  minecraft-inventory@0.1.39(@xmcl/text-component@2.1.3)(mc-assets@0.2.72)(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
+  minecraft-inventory@0.1.43(@xmcl/text-component@2.1.3)(mc-assets@0.2.72)(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
     dependencies:
       '@xmcl/text-component': 2.1.3
       react: 18.3.1
