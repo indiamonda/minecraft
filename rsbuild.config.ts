@@ -206,6 +206,14 @@ const appConfig = defineConfig({
                     fs.copyFileSync('./assets/config.html', './dist/config.html')
                     fs.copyFileSync('./assets/debug-inputs.html', './dist/debug-inputs.html')
                     fs.copyFileSync('./assets/loading-bg.jpg', './dist/loading-bg.jpg')
+                    // JimmyQrg cloud-sync runtime: serves from the same origin as mcraft.fly.dev
+                    // so the auth token + IndexedDB sync work without CSP/CORS gymnastics.
+                    if (fs.existsSync('./assets/jqrg-cloud.js')) {
+                        fs.copyFileSync('./assets/jqrg-cloud.js', './dist/jqrg-cloud.js')
+                    }
+                    if (fs.existsSync('./assets/jqrg-bootstrap.js')) {
+                        fs.copyFileSync('./assets/jqrg-bootstrap.js', './dist/jqrg-bootstrap.js')
+                    }
                     if (fs.existsSync('./assets/release.json')) {
                         fs.copyFileSync('./assets/release.json', './dist/release.json')
                     }
