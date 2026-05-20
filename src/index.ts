@@ -92,6 +92,7 @@ import { states } from 'minecraft-protocol'
 import { initMotionTracking } from './react/uiMotion'
 import { UserError } from './mineflayer/userError'
 import { startLocalReplayServer } from './packetsReplay/replayPackets'
+import { preloadMesherWorkerScript } from './core/mesherWorkerPreload'
 import { createFullScreenProgressReporter, createWrappedProgressReporter, ProgressReporter } from './core/progressReporter'
 import { registerOpenBenchmarkListener } from './benchmark'
 import { tryHandleBuiltinCommand } from './builtinCommands'
@@ -144,7 +145,9 @@ const loadSingleplayer = (serverOverrides = {}, flattenedServerOverrides = {}, c
     serverOverrides,
     serverOverridesFlat: {
       ...flattenedServerOverrides,
-      ...serverSettingsQs
+      ...serverSettingsQs,
+      chunkTemplate: appQueryParams.chunkTemplate,
+      blockMap: appQueryParams.chunkTemplateBlockMap
     },
     ...connectOptions
   })
@@ -340,6 +343,8 @@ export async function connect (connectOptions: ConnectOptions) {
   let localReplaySession: ReturnType<typeof startLocalReplayServer> | undefined
   let lastKnownKickReason = undefined as string | undefined
   try {
+    await progress.executeWithMessage('Loading mesher', 'preload-mesher', preloadMesherWorkerScript)
+
     const serverOptions = defaultsDeep({}, connectOptions.serverOverrides ?? {}, options.localServerOptions, defaultServerOptions)
     Object.assign(serverOptions, connectOptions.serverOverridesFlat ?? {})
 
