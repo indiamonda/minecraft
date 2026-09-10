@@ -12,7 +12,9 @@ import SingleplayerProvider from './react/SingleplayerProvider'
 import CreateWorldProvider from './react/CreateWorldProvider'
 import AppStatusProvider from './react/AppStatusProvider'
 import SelectOption from './react/SelectOption'
-import EnterFullscreenButton from './react/EnterFullscreenButton'
+import SettingReloadModal from './react/SettingReloadModal'
+import AutoFillLoginModal from './react/AutoFillLoginModal'
+import MobilePortraitButtons from './react/MobilePortraitButtons'
 import ChatProvider from './react/ChatProvider'
 import TitleProvider from './react/TitleProvider'
 import ScoreboardProvider from './react/ScoreboardProvider'
@@ -45,6 +47,8 @@ import SignInMessageProvider from './react/SignInMessageProvider'
 import BookProvider from './react/BookProvider'
 import { options } from './optionsStorage'
 import BossBarOverlayProvider from './react/BossBarOverlayProvider'
+import VoiceChatConsentProvider from './react/VoiceChatConsentProvider'
+import VoiceChatMenuProvider from './react/VoiceChatMenuProvider'
 import ModsPage from './react/ModsPage'
 import DebugEdges from './react/DebugEdges'
 import GameInteractionOverlay from './react/GameInteractionOverlay'
@@ -242,7 +246,7 @@ const AppBase = () => {
             <ControDebug />
             <div />
           </RobustPortal>
-          <EnterFullscreenButton />
+          <MobilePortraitButtons />
           <StorageConflictModal />
           <InGameUi />
           <RobustPortal to={document.querySelector('#ui-root')}>
@@ -251,6 +255,8 @@ const AppBase = () => {
             <CreateWorldProvider />
             <AppStatusProvider />
             <KeybindingsScreenProvider />
+            <VoiceChatConsentProvider />
+            <VoiceChatMenuProvider />
             <ServersListProvider />
             <OptionsRenderApp />
             <MainMenuRenderApp />
@@ -261,6 +267,8 @@ const AppBase = () => {
             <NotificationProvider />
             <ModsPage />
             <SelectOption />
+            <SettingReloadModal />
+            <AutoFillLoginModal />
             <CreditsAboutModal />
             <AllSettingsEditor />
             <NoModalFoundProvider />

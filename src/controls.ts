@@ -7,7 +7,8 @@ import { ControMax } from 'contro-max/build/controMax'
 import { CommandEventArgument, SchemaCommandInput } from 'contro-max/build/types'
 import { stringStartsWith } from 'contro-max/build/stringUtils'
 import { GameMode } from 'mineflayer'
-import { getThreeJsRendererMethods } from 'renderer/viewer/three/threeJsMethods'
+import { getThreeJsRendererMethods } from 'minecraft-renderer/src/three/threeJsMethods'
+import { getPlayerStateUtils } from 'minecraft-renderer/src'
 import { isGameActive, showModal, gameAdditionalState, activeModalStack, hideCurrentModal, miscUiState, hideModal, hideAllModals } from './globalState'
 import { goFullscreen, isInRealGameSession, pointerLock, reloadChunks } from './utils'
 import { options } from './optionsStorage'
@@ -30,7 +31,10 @@ import { switchGameMode } from './packetsReplay/replayPackets'
 import { tabListState } from './react/PlayerListOverlayProvider'
 import { type ActionType, type ActionHoldConfig, type CustomAction } from './appConfig'
 import { playerState } from './mineflayer/playerState'
+import { setTalking, toggleTalking } from './voice/voiceChat'
+import { voiceChatStatus } from './react/VoiceMicrophone'
 import { emulateMouseClick } from './app/gamepadCursor'
+import { isNextConsoleKeyboardTarget } from './loadDevConsole'
 
 export const customKeymaps = proxy(appStorage.keybindings)
 subscribe(customKeymaps, () => {
@@ -91,6 +95,8 @@ export const contro = new ControMax({
     },
     communication: {
       toggleMicrophone: ['KeyM'],
+      pushToTalk: ['Backquote'],
+      voiceMenu: ['KeyV'],
     },
     advanced: {
       lockUrl: [null],
@@ -110,8 +116,8 @@ export const contro = new ControMax({
 }, {
   defaultControlOptions: controlOptions,
   target: document,
-  captureEvents () {
-    return true
+  captureEvents (e) {
+    return !isNextConsoleKeyboardTarget(e)
   },
   storeProvider: {
     load: () => customKeymaps,
@@ -144,7 +150,7 @@ const setSprinting = (state: boolean) => {
 }
 
 const isSpectatingEntity = () => {
-  return appViewer.playerState.utils.isSpectatingEntity()
+  return getPlayerStateUtils(playerState.reactive).isSpectatingEntity()
 }
 
 let lastScreenshotAt = 0
@@ -316,6 +322,18 @@ const setSneaking = (state: boolean) => {
 }
 
 const onTriggerOrReleased = (command: Command, pressed: boolean) => {
+  // push-to-talk must keep working while a modal is open, so it is handled
+  // before the isGameActive() gate (otherwise releasing the key in a menu
+  // would leave the mic stuck open)
+  if (command === 'communication.pushToTalk') {
+    if (options.voiceOpenMic) {
+      if (pressed) toggleTalking() // ignore the release edge; only the press toggles
+    } else {
+      setTalking(pressed)
+    }
+    return
+  }
+
   // always allow release!
   if (!bot || !isGameActive(false)) return
 
@@ -456,6 +474,14 @@ const alwaysPressedHandledCommand = (command: Command) => {
   }
   if (command === 'communication.toggleMicrophone') {
     toggleMicrophoneMuted?.()
+  }
+  if (command === 'communication.voiceMenu') {
+    if (!voiceChatStatus.active) return
+    if (activeModalStack.at(-1)?.reactType === 'voice-chat-menu') {
+      hideModal()
+    } else {
+      showModal({ reactType: 'voice-chat-menu' })
+    }
   }
 }
 
@@ -658,10 +684,11 @@ export const f3Keybinds: Array<{
   {
     key: 'KeyA',
     action () {
-      //@ts-expect-error
-      const loadedChunks = Object.entries(worldView.loadedChunks).filter(([, v]) => v).map(([key]) => key.split(',').map(Number))
+      const wv = appViewer.worldView
+      if (!wv) return
+      const loadedChunks = Object.entries(wv.loadedChunks).filter(([, v]) => v).map(([key]) => key.split(',').map(Number))
       for (const [x, z] of loadedChunks) {
-        worldView!.unloadChunk({ x, z })
+        wv.unloadChunk({ x, z })
       }
       // for (const child of viewer.scene.children) {
       //   if (child.name === 'chunk') { // should not happen

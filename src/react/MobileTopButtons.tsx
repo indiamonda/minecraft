@@ -7,8 +7,7 @@ import { miscUiState } from '../globalState'
 import PixelartIcon from './PixelartIcon'
 import styles from './MobileTopButtons.module.css'
 
-const isHeightGreaterThanWidth = () =>
-  typeof window !== 'undefined' && window.innerHeight > window.innerWidth
+const isHeightGreaterThanWidth = () => typeof window !== 'undefined' && window.innerHeight > window.innerWidth
 
 export default () => {
   const elRef = useRef<HTMLDivElement | null>(null)

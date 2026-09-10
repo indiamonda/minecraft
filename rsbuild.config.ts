@@ -11,7 +11,7 @@ import fsExtra from 'fs-extra'
 import { promisify } from 'util'
 import { generateSW } from 'workbox-build'
 import { getSwAdditionalEntries } from './scripts/build'
-import { appAndRendererSharedConfig } from './renderer/rsbuildSharedConfig'
+import { appAndRendererSharedConfig } from './rsbuildSharedConfig'
 import { genLargeDataAliases } from './scripts/genLargeDataAliases'
 import sharp from 'sharp'
 import supportedVersions from './src/supportedVersions.mjs'
@@ -35,6 +35,8 @@ const buildingVersion = new Date().toISOString().split(':')[0]
 
 const buildTime = new Date()
 const buildDisplayDate = `${String(buildTime.getDate()).padStart(2, '0')}.${String(buildTime.getMonth() + 1).padStart(2, '0')}.${String(buildTime.getFullYear()).slice(-2)}`
+
+const minecraftRendererVersion = require('minecraft-renderer/package.json').version as string
 
 const dev = process.env.NODE_ENV === 'development'
 const disableServiceWorker = process.env.DISABLE_SERVICE_WORKER === 'true'
@@ -87,7 +89,7 @@ const faviconPath = 'favicon.png'
 
 const enableMetrics = process.env.ENABLE_METRICS === 'true'
 
-// base options are in ./renderer/rsbuildSharedConfig.ts
+// base options are in ./rsbuildSharedConfig.ts
 const appConfig = defineConfig({
     html: {
         template: './index.html',
@@ -196,6 +198,8 @@ const appConfig = defineConfig({
             'process.env.ENABLE_COOKIE_STORAGE': JSON.stringify(process.env.ENABLE_COOKIE_STORAGE || true),
             'process.env.COOKIE_STORAGE_PREFIX': JSON.stringify(process.env.COOKIE_STORAGE_PREFIX || ''),
             'process.env.WS_PORT': JSON.stringify(enableMetrics ? 8081 : false),
+            'process.env.MINECRAFT_RENDERER_VERSION': JSON.stringify(minecraftRendererVersion),
+            'process.env.BOAT_PHYS_DEBUG': JSON.stringify(process.env.BOAT_PHYS_DEBUG),
         },
     },
     server: {
@@ -232,6 +236,7 @@ const appConfig = defineConfig({
                     fs.copyFileSync('./assets/config.html', './dist/config.html')
                     fs.copyFileSync('./assets/debug-inputs.html', './dist/debug-inputs.html')
                     fs.copyFileSync('./assets/loading-bg.jpg', './dist/loading-bg.jpg')
+                    fs.copyFileSync('./assets/mojangles.ttf', './dist/mojangles.ttf')
                     // JimmyQrg cloud-sync runtime: serves from the same origin as mcraft.fly.dev
                     // so the auth token + IndexedDB sync work without CSP/CORS gymnastics.
                     if (fs.existsSync('./assets/jqrg-cloud.js')) {
@@ -253,12 +258,22 @@ const appConfig = defineConfig({
                     // childProcess.execSync('./scripts/prepareSounds.mjs', { stdio: 'inherit' })
                     // childProcess.execSync('tsx ./scripts/genMcDataTypes.ts', { stdio: 'inherit' })
                     // childProcess.execSync('tsx ./scripts/genPixelartTypes.ts', { stdio: 'inherit' })
-                    if (fs.existsSync('./renderer/dist/mesher.js') && dev) {
+                    // copy mesher worker
+                    if (fs.existsSync('./node_modules/minecraft-renderer/src/wasm-mesher/runtime-build/wasm_mesher_bg.wasm')) {
+                        fs.copyFileSync('./node_modules/minecraft-renderer/src/wasm-mesher/runtime-build/wasm_mesher_bg.wasm', './dist/wasm_mesher_bg.wasm')
+                    } else {
+                        console.warn('wasm_mesher_bg.wasm not found')
+                    }
+                    if (fs.existsSync('./node_modules/minecraft-renderer/dist/mesherWasm.js')) {
+                        fs.copyFileSync('./node_modules/minecraft-renderer/dist/mesherWasm.js', './dist/mesherWasm.js')
+                    }
+                    if (fs.existsSync('./node_modules/minecraft-renderer/dist/mesher.js')) {
                         // copy mesher
-                        fs.copyFileSync('./renderer/dist/mesher.js', './dist/mesher.js')
-                        fs.copyFileSync('./renderer/dist/mesher.js.map', './dist/mesher.js.map')
-                    } else if (!dev) {
-                        await execAsync('pnpm run build-mesher')
+                        fs.copyFileSync('./node_modules/minecraft-renderer/dist/mesher.js', './dist/mesher.js')
+                        fs.copyFileSync('./node_modules/minecraft-renderer/dist/mesher.js.map', './dist/mesher.js.map')
+                        fs.copyFileSync('./node_modules/minecraft-renderer/dist/threeWorker.js', './dist/threeWorker.js')
+                    } else {
+                        throw new Error('mesher.js not found')
                     }
                     fs.writeFileSync('./dist/version.txt', buildingVersion, 'utf-8')
 

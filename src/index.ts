@@ -7,6 +7,7 @@ import './devtools'
 import './entities'
 import customChannels from './customChannels'
 import './globalDomListeners'
+import './displayRotation'
 import './mineflayer/maps'
 import './mineflayer/cameraShake'
 import './shims/patchShims'
@@ -54,7 +55,7 @@ import {
 } from './globalState'
 
 import { parseServerAddress } from './parseServerAddress'
-import { setLoadingScreenStatus, lastConnectOptions } from './appStatus'
+import { setLoadingScreenStatus, lastConnectOptions, formatLoadingScreenError } from './appStatus'
 import { isCypress } from './standaloneUtils'
 
 import { startLocalServer, unsupportedLocalServerFeatures } from './createLocalServer'
@@ -67,7 +68,6 @@ import { registerServiceWorker } from './serviceWorker'
 import { appStatusState, quickDevReconnect } from './react/AppStatusProvider'
 
 import { fsState } from './loadSave'
-import { watchFov } from './rendererUtils'
 import { loadInMemorySave } from './react/SingleplayerProvider'
 
 import { possiblyHandleStateVariable } from './googledrive'
@@ -80,6 +80,7 @@ import { ConnectOptions, getVersionAutoSelect, downloadOtherGameData, downloadAl
 import { ref, subscribe } from 'valtio'
 import { signInMessageState } from './react/SignInMessageProvider'
 import { findServerPassword, updateAuthenticatedAccountData, updateLoadedServerData, updateServerConnectionHistory } from './react/serversStorage'
+import { monitorLoginAttempt } from './core/authModal'
 import { mainMenuState } from './react/MainMenuRenderApp'
 import './mobileShim'
 import { parseFormattedMessagePacket } from './botUtils'
@@ -102,10 +103,10 @@ import { getCurrentProxy, getCurrentUsername } from './react/ServersList'
 import { versionToNumber } from 'mc-assets/dist/utils'
 import { isPlayground } from './playgroundIntegration'
 import { appLoadBackend } from './appViewerLoad'
+import { getCameraMovementMode, shouldSnapCameraOnMount } from './cameraMovementMode'
 import { FORBIDDEN_VERSION_THRESHOLD } from './supportedVersions.mjs'
 
 window.debug = debug
-window.beforeRenderFrame = []
 
 // ACTUAL CODE
 
@@ -113,13 +114,12 @@ if (!isPlayground) {
   void appLoadBackend()
 }
 if (isPlayground) {
-  void import('renderer/playground/playground')
+  void import('minecraft-renderer/src/playground/playground')
 }
 
 void registerServiceWorker().then(() => {
   mainMenuState.serviceWorkerLoaded = true
 })
-watchFov()
 initCollisionShapes()
 initializePacketsReplay()
 onAppLoad()
@@ -129,8 +129,9 @@ if (appQueryParams.testCrashApp === '2') throw new Error('test')
 
 function hideCurrentScreens () {
   const appStatus = activeModalStack.find(x => x.reactType === 'app-status')
-  activeModalStacks['main-menu'] = activeModalStack.filter(x => x !== appStatus)
-  insertActiveModalStack('', appStatus ? [appStatus] : [])
+  const keepOpen = activeModalStack.filter(x => x === appStatus || x.reactType === 'voice-chat-consent')
+  activeModalStacks['main-menu'] = activeModalStack.filter(x => !keepOpen.includes(x))
+  insertActiveModalStack('', keepOpen)
 }
 
 const loadSingleplayer = (serverOverrides = {}, flattenedServerOverrides = {}, connectOptions?: Partial<ConnectOptions>) => {
@@ -203,7 +204,7 @@ export async function connect (connectOptions: ConnectOptions) {
     updateServerConnectionHistory(parsedServer.host, connectOptions.botVersion)
   }
 
-  const { renderDistance: renderDistanceSingleplayer, multiplayerRenderDistance } = options
+  const { renderDistance } = options
 
   const parsedServer = parseServerAddress(connectOptions.server)
   const server = { host: parsedServer.host, port: parsedServer.port }
@@ -284,9 +285,12 @@ export async function connect (connectOptions: ConnectOptions) {
       appStatusState.descriptionHint = `Last Server Packet: ${lastPacket}`
     }
   }
-  const handleError = (err) => {
-    console.error(err)
+  const handleError = (err: unknown, source: string) => {
+    console.error(`[${source}]`, err)
     if (err === 'ResizeObserver loop completed with undelivered notifications.') {
+      return
+    }
+    if (String(err).includes('sourceMappingURL')) {
       return
     }
     if (isCypress()) throw err
@@ -298,7 +302,7 @@ export async function connect (connectOptions: ConnectOptions) {
       hideModal(modal)
     }
 
-    setLoadingScreenStatus(`Error encountered. ${err}`, true)
+    setLoadingScreenStatus(formatLoadingScreenError(source, err), true)
     appStatusState.showReconnect = true
     onPossibleErrorDisconnect()
     handleSessionEnd()
@@ -316,7 +320,7 @@ export async function connect (connectOptions: ConnectOptions) {
       // ignore issues caused by chrome extension
       return
     }
-    handleError(e.reason)
+    handleError(e.reason, 'Unhandled promise rejection')
   }, {
     signal: errorAbortController.signal
   })
@@ -324,7 +328,7 @@ export async function connect (connectOptions: ConnectOptions) {
     const statusAtError = appStatusState.status
     setTimeout(() => {
       if (appStatusState.status !== statusAtError || miscUiState.gameLoaded) return
-      handleError(e.message)
+      handleError(e.error ?? e.message, 'Uncaught window error')
     }, 10_000)
   }, {
     signal: errorAbortController.signal
@@ -337,7 +341,6 @@ export async function connect (connectOptions: ConnectOptions) {
     net['setProxy']({ hostname: proxy.host, port: proxy.port, headers: { Authorization: `Bearer ${new URLSearchParams(location.search).get('token') ?? ''}` }, artificialDelay: appQueryParams.addPing ? Number(appQueryParams.addPing) : undefined })
   }
 
-  const renderDistance = singleplayer ? renderDistanceSingleplayer : multiplayerRenderDistance
   let updateDataAfterJoin = () => { }
   let localServer
   let localReplaySession: ReturnType<typeof startLocalReplayServer> | undefined
@@ -634,11 +637,12 @@ export async function connect (connectOptions: ConnectOptions) {
       // "mapDownloader-saveInternal": false, // do not save into memory, todo must be implemeneted as we do really care of ram
     }) as unknown as typeof __type_bot
     window.bot = bot
-
     if (connectOptions.viewerWsConnect) {
       void onBotCreatedViewerHandler()
     }
+    // Keep synchronous — no await before emit
     customEvents.emit('mineflayerBotCreated')
+
     if (singleplayer || p2pMultiplayer || localReplaySession) {
       if (singleplayer || p2pMultiplayer) {
         // in case of p2pMultiplayer there is still flying-squid on the host side
@@ -704,7 +708,7 @@ export async function connect (connectOptions: ConnectOptions) {
 
     }
   } catch (err) {
-    handleError(err)
+    handleError(err, 'Connection setup error')
   }
   if (!bot) return
 
@@ -714,7 +718,7 @@ export async function connect (connectOptions: ConnectOptions) {
   //   loadingScreen.maybeRecoverable = false
   // })
 
-  bot.on('error', handleError)
+  bot.on('error', (err) => handleError(err, 'Mineflayer error'))
 
   bot.on('kicked', (kickReason) => {
     console.log('You were kicked!', kickReason)
@@ -778,7 +782,7 @@ export async function connect (connectOptions: ConnectOptions) {
           resolve()
           unsub()
         } else {
-          const perc = Math.round(appViewer.rendererState.world.chunksLoaded.size / appViewer.nonReactiveState.world.chunksTotalNumber * 100)
+          const perc = Math.round(Object.keys(appViewer.rendererState.world.chunksLoaded).length / appViewer.nonReactiveState.world.chunksTotalNumber * 100)
           progress?.reportProgress('chunks', perc / 100)
         }
       })
@@ -831,27 +835,40 @@ export async function connect (connectOptions: ConnectOptions) {
       if (password) {
         setTimeout(() => {
           bot.chat(`/login ${password}`)
+          monitorLoginAttempt({
+            password,
+            mode: 'login',
+            source: 'manual',
+            preSaved: true
+          })
         }, 500)
       }
 
 
       console.log('bot spawned - starting viewer')
       await appViewer.startWorld(bot.world, renderDistance)
-      appViewer.worldView!.listenToBot(bot)
       if (appViewer.backend) {
-        void appViewer.worldView!.init(bot.entity.position)
+        void appViewer.worldView!.init(bot.entity.position, bot)
       }
 
       initMotionTracking()
 
       // Bot position callback
-      const botPosition = () => {
+      const botPosition = (instant = false) => {
         appViewer.lastCamUpdate = Date.now()
-        // this might cause lag, but not sure
-        appViewer.backend?.updateCamera(bot.entity.position, bot.entity.yaw, bot.entity.pitch)
+        appViewer.backend?.updateCamera(
+          bot.entity.position,
+          bot.entity.yaw,
+          bot.entity.pitch,
+          { movementMode: getCameraMovementMode(bot), instant },
+        )
         void appViewer.worldView?.updatePosition(bot.entity.position)
       }
-      bot.on('move', botPosition)
+      bot.on('move', () => botPosition())
+      bot.on('forcedMove', () => botPosition(true))
+      bot.on('mount', () => {
+        if (shouldSnapCameraOnMount(bot.vehicle?.name)) botPosition(true)
+      })
       botPosition()
 
       progress.setMessage('Setting callbacks')
@@ -918,7 +935,7 @@ export async function connect (connectOptions: ConnectOptions) {
       setLoadingScreenStatus(undefined)
       hideCurrentScreens()
     } catch (err) {
-      handleError(err)
+      handleError(err, 'World load error')
     }
     lastConnectOptions.hadWorldLoaded = true
   }
